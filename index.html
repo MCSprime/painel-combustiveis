@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel de Preços de Combustíveis — Cariacica/ES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #121210;
+    --bg-panel: #1b1b18;
+    --bg-panel-2: #202019;
+    --border: #33322b;
+    --amber: #ffb400;
+    --amber-dim: #8a6a1f;
+    --green: #35c47a;
+    --red: #ff5c5c;
+    --text: #f3f1e7;
+    --text-dim: #a6a396;
+    --text-faint: #706d5f;
+    --mono: 'Space Mono', 'Courier New', monospace;
+    --sans: 'Inter', system-ui, sans-serif;
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  html { scroll-padding-top: env(safe-area-inset-top, 0px); }
+  * { box-sizing: border-box; }
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg: #f4f2ea; --bg-panel: #ffffff; --bg-panel-2: #ece9dd;
+      --border: #ddd8c8; --text: #201f1a; --text-dim: #5c594c; --text-faint: #8b8878;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121210; --bg-panel: #1b1b18; --bg-panel-2: #202019;
+    --border: #33322b; --text: #f3f1e7; --text-dim: #a6a396; --text-faint: #706d5f;
+  }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 28px 20px 60px; }
+
+  header.top { border-bottom: 1px solid var(--border); padding-bottom: 22px; margin-bottom: 26px; }
+  .brand-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .pump-icon { font-size: 30px; line-height: 1; }
+  h1 { font-family: var(--mono); font-weight: 700; font-size: clamp(22px, 4vw, 32px); margin: 0; letter-spacing: -0.5px; }
+  .subtitle { color: var(--text-dim); font-size: 14px; margin-top: 6px; max-width: 640px; line-height: 1.5; }
+  .badge { font-family: var(--mono); font-size: 12px; color: var(--bg); background: var(--amber); padding: 5px 10px; border-radius: 3px; white-space: nowrap; }
+
+  nav.tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 22px; border-bottom: 1px solid var(--border); }
+  nav.tabs button {
+    font-family: var(--sans); font-weight: 600; font-size: 13.5px; color: var(--text-dim);
+    background: transparent; border: none; border-bottom: 2px solid transparent;
+    padding: 10px 6px 12px; cursor: pointer; margin-right: 14px;
+  }
+  nav.tabs button.active { color: var(--amber); border-bottom-color: var(--amber); }
+  nav.tabs button:hover { color: var(--text); }
+
+  section.panel { display: none; }
+  section.panel.active { display: block; }
+
+  .card { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 6px; padding: 20px; margin-bottom: 18px; }
+  .card h2 { font-size: 16px; margin: 0 0 4px; }
+  .card .desc { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+
+  .filters { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+  .field { display: flex; flex-direction: column; gap: 5px; }
+  .field label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-faint); }
+  select {
+    font-family: var(--sans); font-size: 13.5px; color: var(--text); background: var(--bg-panel-2);
+    border: 1px solid var(--border); border-radius: 4px; padding: 8px 10px; min-width: 180px;
+  }
+
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; min-width: 560px; font-size: 13px; }
+  thead th {
+    text-align: left; font-family: var(--mono); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.04em; color: var(--text-faint); background: var(--bg-panel-2);
+    padding: 9px 12px; border-bottom: 1px solid var(--border); white-space: nowrap;
+  }
+  tbody td { padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text); white-space: nowrap; }
+  tbody tr:last-child td { border-bottom: none; }
+  .price { font-family: var(--mono); font-weight: 700; }
+  .price.min { color: var(--green); }
+  .price.max { color: var(--red); }
+  .tag { display: inline-block; font-family: var(--mono); font-size: 10.5px; padding: 2px 6px; border-radius: 3px; }
+  .tag.min { background: rgba(53,196,122,0.15); color: var(--green); }
+  .tag.max { background: rgba(255,92,92,0.15); color: var(--red); }
+
+  .chart-box { background: var(--bg-panel-2); border: 1px solid var(--border); border-radius: 4px; padding: 14px; height: 340px; }
+
+  footer.foot { margin-top: 30px; padding-top: 18px; border-top: 1px solid var(--border); color: var(--text-faint); font-size: 12px; line-height: 1.6; }
+
+  ::-webkit-scrollbar { height: 8px; width: 8px; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div class="brand-row">
+      <div class="brand">
+        <span class="pump-icon">⛽</span>
+        <div>
+          <h1>Painel de Preços — Cariacica/ES</h1>
+          <div class="subtitle">Consulta pública de preços de combustíveis em 5 postos de Cariacica, com base em 100 coletas reais (dez/2024 a jul/2026). Projeto de extensão — Arquitetura de Dados Relacionais I.</div>
+        </div>
+      </div>
+      <span class="badge" id="totalBadge">100 coletas</span>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="t1" class="active">I · Menor e maior preço</button>
+    <button data-tab="t2">II · Média e amostras</button>
+    <button data-tab="t3">III · Preço mais recente</button>
+    <button data-tab="t4">IV · Evolução por posto</button>
+    <button data-tab="t5">Gráficos</button>
+  </nav>
+
+  <section class="panel active" id="t1">
+    <div class="card">
+      <h2>Menor e maior preço de cada combustível</h2>
+      <div class="desc">Posto, endereço, bairro, valor e data da coleta para o preço mínimo e máximo registrado de cada tipo de combustível.</div>
+      <div class="table-scroll">
+        <table id="table1">
+          <thead><tr><th>Combustível</th><th>Situação</th><th>Posto</th><th>Endereço</th><th>Bairro</th><th>Valor</th><th>Data</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="t2">
+    <div class="card">
+      <h2>Preço médio e quantidade de amostras por posto</h2>
+      <div class="desc">Para cada posto e tipo de combustível: nome do posto, bairro, tipo, preço médio e número de coletas.</div>
+      <div class="filters">
+        <div class="field"><label>Combustível</label><select id="filterCombustivel2"></select></div>
+      </div>
+      <div class="table-scroll">
+        <table id="table2">
+          <thead><tr><th>Posto</th><th>Bairro</th><th>Combustível</th><th>Preço médio</th><th>Amostras</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="t3">
+    <div class="card">
+      <h2>Preço mais recente por posto e combustível</h2>
+      <div class="desc">Apenas o registro mais recente de cada combinação posto + combustível.</div>
+      <div class="filters">
+        <div class="field"><label>Combustível</label><select id="filterCombustivel3"></select></div>
+      </div>
+      <div class="table-scroll">
+        <table id="table3">
+          <thead><tr><th>Posto</th><th>Bairro</th><th>Combustível</th><th>Valor</th><th>Data</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="t4">
+    <div class="card">
+      <h2>Evolução do preço ao longo do tempo</h2>
+      <div class="desc">Escolha um posto e um combustível para ver a evolução cronológica dos preços coletados.</div>
+      <div class="filters">
+        <div class="field"><label>Posto</label><select id="filterPosto4"></select></div>
+        <div class="field"><label>Combustível</label><select id="filterCombustivel4"></select></div>
+      </div>
+      <div class="chart-box"><canvas id="chart4"></canvas></div>
+      <div class="table-scroll" style="margin-top:14px;">
+        <table id="table4">
+          <thead><tr><th>Posto</th><th>Bairro</th><th>Combustível</th><th>Valor</th><th>Data</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="t5">
+    <div class="card">
+      <h2>Gráfico I — Evolução do preço médio de cada combustível</h2>
+      <div class="desc">Preço médio (entre todos os postos de Cariacica) de cada tipo de combustível, por data de coleta.</div>
+      <div class="chart-box"><canvas id="chartG1"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Gráfico II — Evolução do preço médio por posto</h2>
+      <div class="desc">Escolha um combustível para comparar a evolução do preço entre os postos de Cariacica.</div>
+      <div class="filters">
+        <div class="field"><label>Combustível</label><select id="filterCombustivelG2"></select></div>
+      </div>
+      <div class="chart-box"><canvas id="chartG2"></canvas></div>
+    </div>
+  </section>
+
+  <footer class="foot">
+    Fonte dos dados: Séries Históricas de Preços de Combustíveis da ANP, via agregador gaspedia.com.br. Projeto de extensão da disciplina Arquitetura de Dados Relacionais I — Sistema de Coleta de Preços de Combustíveis, Cariacica/ES, 2026.
+  </footer>
+</div>
+
+<script>
+const DATA = [{"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.19, "data_coleta": "2025-01-06"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.19, "data_coleta": "2024-12-30"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.19, "data_coleta": "2024-12-23"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.19, "data_coleta": "2024-12-16"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.19, "data_coleta": "2024-12-10"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2025-01-06"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2024-12-30"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2024-12-23"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2024-12-16"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2024-12-10"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2025-01-06"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2024-12-30"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2024-12-23"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2024-12-16"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2024-12-10"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 5.99, "data_coleta": "2025-01-06"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 5.99, "data_coleta": "2024-12-30"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 5.99, "data_coleta": "2024-12-23"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 5.99, "data_coleta": "2024-12-16"}, {"posto": "POSTO MALACARNE LTDA", "bandeira": "Ipiranga", "endereco": "Rua Angelo Zani, S/N", "bairro": "Independencia", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 5.99, "data_coleta": "2024-12-10"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2026-07-27"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2026-07-21"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2026-07-15"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2026-07-06"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.49, "data_coleta": "2026-07-01"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.39, "data_coleta": "2026-07-27"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.39, "data_coleta": "2026-07-21"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.39, "data_coleta": "2026-07-15"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.39, "data_coleta": "2026-07-06"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.49, "data_coleta": "2026-07-01"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2026-07-27"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2026-07-21"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.59, "data_coleta": "2026-07-15"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.59, "data_coleta": "2026-07-06"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.59, "data_coleta": "2026-07-01"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.99, "data_coleta": "2026-07-27"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.99, "data_coleta": "2026-07-21"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.99, "data_coleta": "2026-07-15"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.99, "data_coleta": "2026-07-06"}, {"posto": "AUTO POSTO ZAMBON LTDA", "bandeira": "Bandeira Branca (Posto 262)", "endereco": "Avenida Mario Gurgel, 3127", "bairro": "Campo Grande", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.99, "data_coleta": "2026-07-01"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2025-03-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2025-03-19"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2025-03-11"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2025-03-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.39, "data_coleta": "2025-02-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.36, "data_coleta": "2025-03-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.36, "data_coleta": "2025-03-19"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.41, "data_coleta": "2025-03-11"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.41, "data_coleta": "2025-03-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.41, "data_coleta": "2025-02-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.45, "data_coleta": "2025-03-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.45, "data_coleta": "2025-03-19"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2025-03-11"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2025-03-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.49, "data_coleta": "2025-02-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.2, "data_coleta": "2025-03-25"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.2, "data_coleta": "2025-03-19"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.2, "data_coleta": "2025-03-11"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.17, "data_coleta": "2025-03-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA", "bandeira": "Bandeira Branca (Posto Sao Cristovao)", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.17, "data_coleta": "2025-02-25"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2026-07-27"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2026-07-21"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2026-07-07"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2026-07-01"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.35, "data_coleta": "2026-06-24"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2026-07-27"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2026-07-21"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2026-07-07"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2026-07-01"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.35, "data_coleta": "2026-06-24"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.42, "data_coleta": "2026-07-27"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.42, "data_coleta": "2026-07-21"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.59, "data_coleta": "2026-07-07"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.59, "data_coleta": "2026-07-01"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.59, "data_coleta": "2026-06-24"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.69, "data_coleta": "2026-07-27"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.69, "data_coleta": "2026-07-21"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.69, "data_coleta": "2026-07-07"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.69, "data_coleta": "2026-07-01"}, {"posto": "PETROVERA (AUTO POSTO SCHUENG)", "bandeira": "Ipiranga", "endereco": "Rodovia Gov. Jose Henrique Sette, 906", "bairro": "Alto Lage", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.69, "data_coleta": "2026-06-24"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.58, "data_coleta": "2026-07-27"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.58, "data_coleta": "2026-07-21"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.61, "data_coleta": "2026-07-15"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.61, "data_coleta": "2026-07-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Comum", "valor": 6.61, "data_coleta": "2026-07-01"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.69, "data_coleta": "2026-07-27"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.69, "data_coleta": "2026-07-21"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.71, "data_coleta": "2026-07-15"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.71, "data_coleta": "2026-07-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Gasolina Aditivada", "valor": 6.59, "data_coleta": "2026-06-11"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.65, "data_coleta": "2026-07-27"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.65, "data_coleta": "2026-07-21"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.89, "data_coleta": "2026-07-15"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.89, "data_coleta": "2026-07-06"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Etanol", "valor": 4.89, "data_coleta": "2026-07-01"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.87, "data_coleta": "2026-05-13"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.87, "data_coleta": "2026-05-07"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.87, "data_coleta": "2026-04-22"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.87, "data_coleta": "2026-04-01"}, {"posto": "AUTO SERVICO SAO CRISTOVAO LTDA (POSTO SAO CRISTOVAO - VIBRA)", "bandeira": "Vibra", "endereco": "Avenida Mario Gurgel, 4", "bairro": "Dom Bosco", "cidade": "Cariacica", "combustivel": "Diesel", "valor": 6.87, "data_coleta": "2026-03-23"}];
+
+document.getElementById('totalBadge').textContent = DATA.length + ' coletas';
+
+const fmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtDate = (iso) => { const [y,m,d] = iso.split('-'); return d + '/' + m + '/' + y; };
+
+const combustiveis = [...new Set(DATA.map(d => d.combustivel))].sort();
+const postos = [...new Set(DATA.map(d => d.posto))].sort();
+
+// ---- Tabs ----
+document.querySelectorAll('#tabs button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#tabs button').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById(btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ---- Consulta I: menor e maior preço por combustível ----
+function renderTable1() {
+  const tbody = document.querySelector('#table1 tbody');
+  tbody.innerHTML = '';
+  combustiveis.forEach(comb => {
+    const rows = DATA.filter(d => d.combustivel === comb);
+    const min = rows.reduce((a,b) => b.valor < a.valor ? b : a);
+    const max = rows.reduce((a,b) => b.valor > a.valor ? b : a);
+    [[min,'min','MENOR'],[max,'max','MAIOR']].forEach(([r, cls, label], i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${i===0?comb:''}</td><td><span class="tag ${cls}">${label}</span></td>
+        <td>${r.posto}</td><td>${r.endereco}</td><td>${r.bairro}</td>
+        <td class="price ${cls}">${fmt.format(r.valor)}</td><td>${fmtDate(r.data_coleta)}</td>`;
+      tbody.appendChild(tr);
+    });
+  });
+}
+
+// ---- Consulta II: média e amostras por posto + combustível ----
+function computeGroupStats() {
+  const map = new Map();
+  DATA.forEach(d => {
+    const key = d.posto + '|' + d.combustivel;
+    if (!map.has(key)) map.set(key, { posto: d.posto, bairro: d.bairro, combustivel: d.combustivel, vals: [] });
+    map.get(key).vals.push(d);
+  });
+  return [...map.values()].map(g => ({
+    posto: g.posto, bairro: g.bairro, combustivel: g.combustivel,
+    media: g.vals.reduce((s,x) => s+x.valor, 0) / g.vals.length,
+    qtd: g.vals.length,
+    recente: g.vals.reduce((a,b) => new Date(b.data_coleta) > new Date(a.data_coleta) ? b : a)
+  }));
+}
+const groupStats = computeGroupStats();
+
+function renderTable2() {
+  const sel = document.getElementById('filterCombustivel2').value;
+  const tbody = document.querySelector('#table2 tbody');
+  tbody.innerHTML = '';
+  groupStats.filter(g => sel === 'Todos' || g.combustivel === sel)
+    .sort((a,b) => a.posto.localeCompare(b.posto) || a.combustivel.localeCompare(b.combustivel))
+    .forEach(g => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${g.posto}</td><td>${g.bairro}</td><td>${g.combustivel}</td>
+        <td class="price">${fmt.format(g.media)}</td><td>${g.qtd}</td>`;
+      tbody.appendChild(tr);
+    });
+}
+
+// ---- Consulta III: preço mais recente ----
+function renderTable3() {
+  const sel = document.getElementById('filterCombustivel3').value;
+  const tbody = document.querySelector('#table3 tbody');
+  tbody.innerHTML = '';
+  groupStats.filter(g => sel === 'Todos' || g.combustivel === sel)
+    .sort((a,b) => a.posto.localeCompare(b.posto) || a.combustivel.localeCompare(b.combustivel))
+    .forEach(g => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${g.posto}</td><td>${g.bairro}</td><td>${g.combustivel}</td>
+        <td class="price">${fmt.format(g.recente.valor)}</td><td>${fmtDate(g.recente.data_coleta)}</td>`;
+      tbody.appendChild(tr);
+    });
+}
+
+// ---- Consulta IV: evolução por posto + combustível ----
+let chart4;
+function renderTable4AndChart() {
+  const posto = document.getElementById('filterPosto4').value;
+  const comb = document.getElementById('filterCombustivel4').value;
+  const rows = DATA.filter(d => d.posto === posto && d.combustivel === comb)
+    .sort((a,b) => new Date(a.data_coleta) - new Date(b.data_coleta));
+  const tbody = document.querySelector('#table4 tbody');
+  tbody.innerHTML = '';
+  rows.forEach(r => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${r.posto}</td><td>${r.bairro}</td><td>${r.combustivel}</td>
+      <td class="price">${fmt.format(r.valor)}</td><td>${fmtDate(r.data_coleta)}</td>`;
+    tbody.appendChild(tr);
+  });
+
+  const ctx = document.getElementById('chart4').getContext('2d');
+  if (chart4) chart4.destroy();
+  chart4 = new Chart(ctx, {
+    type: 'line',
+    data: { labels: rows.map(r => fmtDate(r.data_coleta)),
+      datasets: [{ label: comb, data: rows.map(r => r.valor), borderColor: '#ffb400',
+        backgroundColor: 'rgba(255,180,0,0.12)', tension: 0.25, fill: true, pointRadius: 3 }] },
+    options: chartOptions('Preço (R$)')
+  });
+}
+
+// ---- Gráfico I: preço médio por combustível ao longo do tempo (todos os postos) ----
+let chartG1;
+function renderChartG1() {
+  const dateSet = [...new Set(DATA.map(d => d.data_coleta))].sort();
+  const datasets = combustiveis.map((comb, i) => {
+    const colors = ['#ffb400', '#35c47a', '#ff5c5c', '#7aa2ff'];
+    const byDate = dateSet.map(dt => {
+      const rows = DATA.filter(d => d.combustivel === comb && d.data_coleta === dt);
+      if (!rows.length) return null;
+      return rows.reduce((s,x)=>s+x.valor,0) / rows.length;
+    });
+    return { label: comb, data: byDate, borderColor: colors[i % colors.length],
+      backgroundColor: colors[i % colors.length]+'22', tension: 0.25, spanGaps: true, pointRadius: 2 };
+  });
+  const ctx = document.getElementById('chartG1').getContext('2d');
+  if (chartG1) chartG1.destroy();
+  chartG1 = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dateSet.map(fmtDate), datasets },
+    options: chartOptions('Preço médio (R$)')
+  });
+}
+
+// ---- Gráfico II: preço médio por posto para um combustível ----
+let chartG2;
+function renderChartG2() {
+  const comb = document.getElementById('filterCombustivelG2').value;
+  const dateSet = [...new Set(DATA.filter(d => d.combustivel === comb).map(d => d.data_coleta))].sort();
+  const colors = ['#ffb400', '#35c47a', '#ff5c5c', '#7aa2ff', '#d98cff'];
+  const datasets = postos.map((posto, i) => {
+    const byDate = dateSet.map(dt => {
+      const rows = DATA.filter(d => d.posto === posto && d.combustivel === comb && d.data_coleta === dt);
+      if (!rows.length) return null;
+      return rows.reduce((s,x)=>s+x.valor,0) / rows.length;
+    });
+    return { label: posto, data: byDate, borderColor: colors[i % colors.length],
+      backgroundColor: colors[i % colors.length]+'22', tension: 0.25, spanGaps: true, pointRadius: 2 };
+  });
+  const ctx = document.getElementById('chartG2').getContext('2d');
+  if (chartG2) chartG2.destroy();
+  chartG2 = new Chart(ctx, {
+    type: 'line',
+    data: { labels: dateSet.map(fmtDate), datasets },
+    options: chartOptions('Preço (R$)')
+  });
+}
+
+function chartOptions(yTitle) {
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--border').trim();
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--text-dim').trim();
+  return {
+    responsive: true, maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { labels: { color: textColor, font: { size: 11 } } } },
+    scales: {
+      x: { ticks: { color: textColor, font: { size: 10 }, maxRotation: 60, minRotation: 0 }, grid: { color: gridColor } },
+      y: { title: { display: true, text: yTitle, color: textColor }, ticks: { color: textColor }, grid: { color: gridColor } }
+    }
+  };
+}
+
+// ---- Populate filters ----
+function fillSelect(id, options, includeAll) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = '';
+  if (includeAll) {
+    const opt = document.createElement('option'); opt.value = 'Todos'; opt.textContent = 'Todos'; sel.appendChild(opt);
+  }
+  options.forEach(o => { const opt = document.createElement('option'); opt.value = o; opt.textContent = o; sel.appendChild(opt); });
+}
+
+fillSelect('filterCombustivel2', combustiveis, true);
+fillSelect('filterCombustivel3', combustiveis, true);
+fillSelect('filterPosto4', postos, false);
+fillSelect('filterCombustivel4', combustiveis, false);
+fillSelect('filterCombustivelG2', combustiveis, false);
+
+document.getElementById('filterCombustivel2').addEventListener('change', renderTable2);
+document.getElementById('filterCombustivel3').addEventListener('change', renderTable3);
+document.getElementById('filterPosto4').addEventListener('change', renderTable4AndChart);
+document.getElementById('filterCombustivel4').addEventListener('change', renderTable4AndChart);
+document.getElementById('filterCombustivelG2').addEventListener('change', renderChartG2);
+
+renderTable1();
+renderTable2();
+renderTable3();
+renderTable4AndChart();
+renderChartG1();
+renderChartG2();
+</script>
+</body>
+</html>
